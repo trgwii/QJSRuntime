@@ -5,6 +5,7 @@ const js_std = @import("js_std.zig");
 const c = @cImport({
     @cInclude("quickjs/quickjs.h");
 });
+const Runtime = @import("qjs/Runtime.zig");
 
 fn loadModule(ctx: ?*c.JSContext, filename: ?[*]const u8, extra: ?*anyopaque) callconv(.C) ?*c.JSModuleDef {
     _ = extra;
@@ -42,16 +43,16 @@ pub fn main() !void {
     }){};
     gpa.requested_memory_limit = 24 * 1024 * 1024;
     // defer std.debug.assert(!gpa.deinit());
-
-    defer std.debug.print("total requested bytes: {}\n", .{gpa.total_requested_bytes});
     const allocator = gpa.allocator();
+    defer std.debug.print("total requested bytes: {}\n", .{gpa.total_requested_bytes});
+
+    const runtime = Runtime.init(allocator) orelse return error.NoRuntime;
 
     const args = try std.process.argsAlloc(allocator);
     defer std.process.argsFree(allocator, args);
 
     var js_allocator = JSAllocator.init(allocator);
     defer js_allocator.deinit();
-    var runtime = c.JS_NewRuntime2(&JSAllocator.js_malloc_functions, &js_allocator) orelse return error.NoRuntime;
 
     c.JS_SetRuntimeOpaque(runtime, &js_allocator);
     defer c.JS_FreeRuntime(runtime);
