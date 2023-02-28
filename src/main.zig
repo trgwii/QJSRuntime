@@ -1,94 +1,84 @@
 const std = @import("std");
-const JSAllocator = @import("js_allocator.zig");
-const debug = @import("debug.zig");
-const js_std = @import("js_std.zig");
-const c = @import("qjs/c.zig");
+const c = @cImport({
+    @cInclude("quickjs/quickjs.h");
+});
 const Runtime = @import("qjs/Runtime.zig").Runtime;
 const Context = @import("qjs/Context.zig").Context;
-const Enums = @import("qjs/enums.zig");
-const types = @import("qjs/types.zig");
 
-fn loadModule(comptime T: type) type {
-    return struct {
-        fn load(_ctx: *c.JSContext, filename: ?[*]const u8, extra: ?*anyopaque) callconv(.C) ?*types.JSModuleDef {
-            _ = extra;
-            const ctx: Context(T) = .{ .ptr = _ctx };
+fn js_print(_: Context(void, std.mem.Allocator), str: []const u8) void {
+    std.debug.print("{s}\n", .{str});
+}
 
-            std.debug.print("filename: {s}\n", .{@ptrCast([*:0]const u8, filename.?)});
-
-            const allocator = @ptrCast(
-                *JSAllocator,
-                @alignCast(@alignOf(JSAllocator), ctx.getRuntime().getState()),
-            );
-
-            const module_code = std.fs.cwd().readFileAllocOptions(
-                allocator.allocator,
-                std.mem.span(@ptrCast([*:0]const u8, filename.?)),
-                std.math.maxInt(usize),
-                null,
-                1,
-                0,
-            ) catch unreachable;
-
-            const result = ctx.eval(
-                module_code.ptr,
-                module_code.len,
-                filename,
-                Enums.EvalFlags.JS_EVAL_TYPE_MODULE | Enums.EvalFlags.JS_EVAL_FLAG_COMPILE_ONLY,
-            );
-
-            return @ptrCast(?*types.JSModuleDef, result.u.ptr);
-        }
-    };
+fn load(_ctx: ?*c.JSContext, path: ?[*:0]const u8, state: ?*anyopaque) callconv(.C) ?*c.JSModuleDef {
+    const ctx = Context(void, void){ .ptr = _ctx.? };
+    const allocator = @ptrCast(*const std.mem.Allocator, @alignCast(@alignOf(std.mem.Allocator), state.?)).*;
+    const code = std.fs.cwd().readFileAllocOptions(
+        allocator,
+        std.mem.span(path.?),
+        std.math.maxInt(usize),
+        null,
+        1,
+        0,
+    ) catch return null;
+    defer allocator.free(code);
+    return @ptrCast(?*c.JSModuleDef, ctx.eval(
+        code,
+        path.?,
+        c.JS_EVAL_TYPE_MODULE | c.JS_EVAL_FLAG_COMPILE_ONLY,
+    ).val.u.ptr);
 }
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{
         .enable_memory_limit = true,
-    }){};
-    gpa.requested_memory_limit = 24 * 1024 * 1024;
-    // defer std.debug.assert(!gpa.deinit());
+    }){
+        .requested_memory_limit = 128 * 1024,
+    };
+    defer std.debug.assert(!gpa.deinit());
     const allocator = gpa.allocator();
-    defer std.debug.print("total requested bytes: {}\n", .{gpa.total_requested_bytes});
-
-    const runtime = Runtime(*JSAllocator).init(allocator) orelse return error.NoRuntime;
 
     const args = try std.process.argsAlloc(allocator);
     defer std.process.argsFree(allocator, args);
 
-    var js_allocator = JSAllocator.init(allocator);
-    defer js_allocator.deinit();
+    var rt = try Runtime(void).init(&allocator);
+    defer rt.deinit();
 
-    runtime.setState(&js_allocator);
-    defer runtime.deinit();
+    rt.setModuleLoader(std.mem.Allocator, &load, @constCast(&allocator));
 
-    var ctx = runtime.createContext() orelse return error.NoContext;
+    const ctx = try rt.createContext(void);
     defer ctx.deinit();
 
-    const print = ctx.newFunction(@ptrCast(*const types.JSCFunction, &js_std.print), "print", 1);
-    defer ctx.freeValue(print);
+    const print = ctx.createFunction("print", js_print);
+    defer print.free(ctx);
 
-    const global = ctx.getGlobalObject();
-    _ = ctx.setPropString(global, "print", print);
-
-    const readFileSync = ctx.newFunction(@ptrCast(*const types.JSCFunction, &js_std.readFileSync), "readFileSync", 1);
-    defer ctx.freeValue(readFileSync);
-    _ = ctx.setPropString(global, "readFileSync", readFileSync);
-
-    runtime.setModuleLoader(null, &loadModule(*JSAllocator).load, null);
+    const global = ctx.globalThis();
+    defer global.free(ctx);
+    _ = global.setProp(ctx, "print", print);
 
     for (args[1..]) |arg| {
-        const js_code = try std.fs.cwd().readFileAllocOptions(allocator, arg, std.math.maxInt(usize), null, 1, 0);
-        defer allocator.free(js_code);
-        const result = ctx.eval(js_code.ptr, js_code.len, arg, Enums.EvalFlags.JS_EVAL_TYPE_MODULE);
-        // if (result.tag == Enums.JSTags.JS_TAG_EXCEPTION) {
-        //     const exc = ctx.getException();
-        //     std.debug.print("\x1b[33mUnhandled exception from {s}\x1b[0m:\n\x1b[31m{s}\x1b[0m\n{s}\n", .{
-        //         arg,
-        //         ctx.toString(ctx.getPropString(ctx, exc, "message")),
-        //         ctx.toString(ctx.getPropString(ctx, exc, "stack")),
-        //     });
-        // }
-        defer ctx.freeValue(result);
+        const code = try std.fs.cwd().readFileAllocOptions(
+            allocator,
+            arg,
+            std.math.maxInt(usize),
+            null,
+            1,
+            0,
+        );
+        defer allocator.free(code);
+        const result = ctx.eval(code, arg, c.JS_EVAL_TYPE_MODULE);
+        defer result.free(ctx);
+
+        if (result.val.tag == 6) {
+            const exc = ctx.getException();
+            defer exc.free(ctx);
+
+            const msg = exc.prop(ctx, "message");
+            defer msg.free(ctx);
+
+            const str = try msg.toString(ctx);
+            defer msg.freeString(ctx, str);
+
+            std.debug.print("{s}\n", .{str});
+        }
     }
 }

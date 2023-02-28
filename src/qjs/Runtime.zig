@@ -1,46 +1,48 @@
 const std = @import("std");
-const c = @import("c.zig");
-const types = @import("types.zig");
+const c = @cImport({
+    @cInclude("quickjs/quickjs.h");
+});
+const malloc_functions = @import("malloc_functions.zig");
 const Context = @import("Context.zig").Context;
-const RuntimeAllocator = @import("Runtime_allocator.zig");
 
-pub fn Runtime(comptime T: type) type {
+pub fn Runtime(comptime RtState: type) type {
     return struct {
-        allocator_state: RuntimeAllocator.AllocatorState,
-        ptr: *types.JSRuntime,
+        ptr: *c.JSRuntime,
 
         const Self = @This();
 
-        pub fn init(allocator: std.mem.Allocator) ?Self {
-            var runtime = Self{
-                .allocator_state = .{ .allocator = allocator },
-                .ptr = undefined,
+        pub fn init(allocator: *const std.mem.Allocator) !Self {
+            return .{
+                .ptr = c.JS_NewRuntime2(
+                    &malloc_functions.mf,
+                    @constCast(allocator),
+                ) orelse return error.OutOfMemory,
             };
-
-            // TODO: handle unreachable
-            runtime.ptr = c.JS_NewRuntime2(&RuntimeAllocator.js_malloc_functions, &runtime.allocator_state) orelse unreachable;
-
-            return runtime;
         }
 
-        pub fn setState(self: Self, state: T) void {
+        pub fn setState(self: Self, state: *RtState) void {
             c.JS_SetRuntimeOpaque(self.ptr, state);
         }
 
-        pub fn getState(self: Self) ?T {
-            return @as(T, c.JS_GetRuntimeOpaque(self.ptr));
+        pub fn getState(self: Self) ?*RtState {
+            return @as(?*RtState, c.JS_GetRuntimeOpaque(self.ptr));
         }
 
         pub fn deinit(self: Self) void {
             c.JS_FreeRuntime(self.ptr);
         }
 
-        pub fn createContext(self: Self) ?Context(T) {
-            return Context(T).init(self.ptr);
+        pub fn createContext(self: Self, comptime T: type) !Context(RtState, T) {
+            return Context(RtState, T).init(self.ptr);
         }
 
-        pub fn setModuleLoader(self: Self, comptime module_normalize: ?*const c.JSModuleNormalizeFunc, comptime module_loader: ?*const c.JSModuleLoaderFunc, extra: ?*anyopaque) void {
-            return c.JS_SetModuleLoaderFunc(self.ptr, module_normalize, module_loader, extra);
+        pub fn setModuleLoader(
+            self: Self,
+            comptime State: type,
+            loader: *const fn (?*c.JSContext, path: ?[*:0]const u8, state: ?*anyopaque) callconv(.C) ?*c.JSModuleDef,
+            state: *State,
+        ) void {
+            c.JS_SetModuleLoaderFunc(self.ptr, null, loader, state);
         }
     };
 }
