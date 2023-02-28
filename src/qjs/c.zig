@@ -1,5 +1,13 @@
 // JS
-pub const JSValue = *anyopaque;
+const JSValueUnion = union {
+    int32: i32,
+    float64: f64,
+    ptr: *anyopaque,
+};
+pub const JSValue = struct {
+    tag: i64,
+    u: JSValueUnion,
+};
 pub const JSValueConst = JSValue;
 pub const JSModuleDef = opaque {};
 pub const JSCFunction = fn (ctx: *JSContext, this: JSValue, argc: c_int, argv: [*]JSValue) ?JSValue;
