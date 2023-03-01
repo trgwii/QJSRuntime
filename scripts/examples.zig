@@ -12,6 +12,7 @@ pub fn main() !void {
         "examples/core/test.js",
         "examples/logging.js",
         "examples/std-loading.js",
+        "examples/global-console.js",
     };
 
     inline for (files) |file| {

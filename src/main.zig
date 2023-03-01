@@ -52,6 +52,11 @@ pub fn main() !void {
     const ctx = try rt.createContext(void);
     defer ctx.deinit();
 
+    ctx.eval(
+        \\import { log } from 'std';
+        \\globalThis.console = { log };
+    , "prelude", c.JS_EVAL_TYPE_MODULE).free(ctx);
+
     for (args[1..]) |arg| {
         const code = try std.fs.cwd().readFileAllocOptions(
             allocator,
