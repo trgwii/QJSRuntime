@@ -11,6 +11,7 @@ pub fn main() !void {
         "examples/playground/exit.js",
         "examples/core/test.js",
         "examples/logging.js",
+        "examples/std-loading.js",
     };
 
     inline for (files) |file| {

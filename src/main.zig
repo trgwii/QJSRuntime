@@ -9,6 +9,13 @@ const jsTagToString = @import("qjs/Context.zig").jsTagToString;
 fn load(_ctx: ?*c.JSContext, path: ?[*:0]const u8, state: ?*anyopaque) callconv(.C) ?*c.JSModuleDef {
     const ctx = Context(void, void){ .ptr = _ctx.? };
     const allocator = @ptrCast(*const std.mem.Allocator, @alignCast(@alignOf(std.mem.Allocator), state.?)).*;
+    if (std.mem.eql(u8, "std", std.mem.span(path.?))) {
+        return @ptrCast(?*c.JSModuleDef, ctx.eval(
+            @embedFile("js_std"),
+            "std",
+            c.JS_EVAL_TYPE_MODULE | c.JS_EVAL_FLAG_COMPILE_ONLY,
+        ).val.u.ptr);
+    }
     const code = std.fs.cwd().readFileAllocOptions(
         allocator,
         std.mem.span(path.?),

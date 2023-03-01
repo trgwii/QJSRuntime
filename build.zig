@@ -43,6 +43,9 @@ pub fn build(b: *std.Build) void {
     }
     exe.linkLibrary(quickjs);
     exe.addIncludePath("deps");
+    exe.addAnonymousModule("js_std", .{
+        .source_file = .{ .path = "lib/std.js" },
+    });
     exe.install();
 
     const run_cmd = exe.run();
