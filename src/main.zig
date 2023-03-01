@@ -4,6 +4,7 @@ const c = @cImport({
 });
 const Runtime = @import("qjs/Runtime.zig").Runtime;
 const Context = @import("qjs/Context.zig").Context;
+const jsTagToString = @import("qjs/Context.zig").jsTagToString;
 
 fn js_print(_: Context(void, std.mem.Allocator), str: []const u8) void {
     std.debug.print("{s}\n", .{str});
@@ -32,7 +33,7 @@ pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{
         .enable_memory_limit = true,
     }){
-        .requested_memory_limit = 128 * 1024,
+        .requested_memory_limit = 1024 * 1024,
     };
     defer std.debug.assert(!gpa.deinit());
     const allocator = gpa.allocator();
@@ -75,10 +76,17 @@ pub fn main() !void {
             const msg = exc.prop(ctx, "message");
             defer msg.free(ctx);
 
+            if (msg.val.tag != c.JS_TAG_STRING) {
+                const exc_str = try exc.toString(ctx);
+                defer exc.freeString(ctx, exc_str);
+
+                std.debug.print("Unhandled exception ({s}): {s}\n", .{ jsTagToString(exc.val.tag), exc_str });
+                return;
+            }
             const str = try msg.toString(ctx);
             defer msg.freeString(ctx, str);
 
-            std.debug.print("{s}\n", .{str});
+            std.debug.print("Unhandled exception: {s}\n", .{str});
         }
     }
 }

@@ -10,8 +10,9 @@ pub fn Value(comptime RtState: type, comptime CtxState: type) type {
 
         const Self = @This();
         const Ctx = Context(RtState, CtxState);
+        const Val = Value(RtState, CtxState);
 
-        pub fn prop(self: Self, ctx: Ctx, name: [*:0]const u8) Value(RtState, CtxState) {
+        pub fn prop(self: Self, ctx: Ctx, name: [*:0]const u8) Val {
             return .{ .val = c.JS_GetPropertyStr(ctx.ptr, self.val, name) };
         }
 

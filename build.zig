@@ -23,9 +23,11 @@ pub fn build(b: *std.Build) void {
             "\n",
         ) ++ "\"",
     );
+    quickjs.defineCMacro("CONFIG_BIGNUM", null);
     quickjs.addCSourceFiles(&[_][]const u8{
         "deps/quickjs/libunicode.c",
         "deps/quickjs/libregexp.c",
+        "deps/quickjs/libbf.c",
         "deps/quickjs/cutils.c",
     }, &[_][]const u8{});
 

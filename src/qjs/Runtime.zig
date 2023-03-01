@@ -32,8 +32,8 @@ pub fn Runtime(comptime RtState: type) type {
             c.JS_FreeRuntime(self.ptr);
         }
 
-        pub fn createContext(self: Self, comptime T: type) !Context(RtState, T) {
-            return Context(RtState, T).init(self.ptr);
+        pub fn createContext(self: Self, comptime CtxState: type) !Context(RtState, CtxState) {
+            return Context(RtState, CtxState).init(self.ptr);
         }
 
         pub fn setModuleLoader(
