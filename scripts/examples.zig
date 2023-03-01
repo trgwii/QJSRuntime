@@ -8,6 +8,7 @@ pub fn main() !void {
     const files = .{
         "examples/playground/foo.js",
         "examples/playground/test.js",
+        "examples/playground/exit.js",
         "examples/core/test.js",
         "examples/logging.js",
     };

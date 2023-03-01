@@ -115,7 +115,7 @@ pub fn createRawFunction(comptime func: anytype) c.JSCFunction {
                     i32 => {
                         return c.JS_NewInt32(ctx.ptr, @call(.auto, func, params));
                     },
-                    void => {
+                    void, noreturn => {
                         @call(.auto, func, params);
                         return .{ .tag = c.JS_TAG_UNDEFINED, .u = .{ .ptr = null } };
                     },
