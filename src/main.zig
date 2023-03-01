@@ -23,7 +23,10 @@ fn load(_ctx: ?*c.JSContext, path: ?[*:0]const u8, state: ?*anyopaque) callconv(
         null,
         1,
         0,
-    ) catch return null;
+    ) catch {
+        std.debug.print("\x1b[91mFailed to load module '{s}'\n", .{path.?});
+        std.os.exit(0); // TEMP solution
+    };
     defer allocator.free(code);
     return @ptrCast(?*c.JSModuleDef, ctx.eval(
         code,
