@@ -32,7 +32,7 @@ pub fn build(b: *std.Build) void {
     }, &[_][]const u8{});
 
     const exe = b.addExecutable(.{
-        .name = "ZigQuickJS2",
+        .name = "QJSRuntime",
         .target = target,
         .optimize = optimize,
         .root_source_file = .{ .path = "src/main.zig" },

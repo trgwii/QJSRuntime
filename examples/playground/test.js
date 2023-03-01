@@ -1,16 +1,17 @@
 // zig build run -- examples/playground/test.js
+import { log } from "../../lib/std.js";
 
 for (const key of Object.keys(globalThis)) {
-  print(key + ": " + typeof globalThis[key]);
+  log(key + ": " + typeof globalThis[key]);
 }
 
 const self = 'readFileSync("examples/playground/test.js");';
 
-print("line 1" + self.split("\n")[0]);
+log("line 1" + self.split("\n")[0]);
 
-print(48.52992877);
+log(48.52992877);
 
-print(42);
+log(42);
 
 import { foo } from "./foo.js";
 

@@ -6,10 +6,6 @@ const Runtime = @import("qjs/Runtime.zig").Runtime;
 const Context = @import("qjs/Context.zig").Context;
 const jsTagToString = @import("qjs/Context.zig").jsTagToString;
 
-fn js_print(_: Context(void, std.mem.Allocator), str: []const u8) void {
-    std.debug.print("{s}\n", .{str});
-}
-
 fn load(_ctx: ?*c.JSContext, path: ?[*:0]const u8, state: ?*anyopaque) callconv(.C) ?*c.JSModuleDef {
     const ctx = Context(void, void){ .ptr = _ctx.? };
     const allocator = @ptrCast(*const std.mem.Allocator, @alignCast(@alignOf(std.mem.Allocator), state.?)).*;
@@ -48,13 +44,6 @@ pub fn main() !void {
 
     const ctx = try rt.createContext(void);
     defer ctx.deinit();
-
-    const print = ctx.createFunction("print", js_print);
-    defer print.free(ctx);
-
-    const global = ctx.globalThis();
-    defer global.free(ctx);
-    _ = global.setProp(ctx, "print", print);
 
     for (args[1..]) |arg| {
         const code = try std.fs.cwd().readFileAllocOptions(

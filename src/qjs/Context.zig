@@ -165,22 +165,21 @@ pub fn Context(comptime RtState: type, comptime CtxState: type) type {
             };
             const m = c.JS_NewCModule(ctx.ptr, "__core__", struct {
                 fn _(_ctx: ?*c.JSContext, m: ?*c.JSModuleDef) callconv(.C) i32 {
-                    std.debug.print("SetModuleExportList : {}\n", .{c.JS_SetModuleExportList(
+                    std.debug.assert(c.JS_SetModuleExportList(
                         _ctx,
                         m,
                         functions.ptr,
                         @intCast(i32, functions.len),
-                    )});
+                    ) == 0);
                     return 0;
                 }
             }._);
-            std.debug.print("AddModuleExportList : {}\n", .{c.JS_AddModuleExportList(
+            std.debug.assert(c.JS_AddModuleExportList(
                 ctx.ptr,
                 m,
                 functions.ptr,
                 @intCast(i32, functions.len),
-            )});
-            // std.debug.print("AddModuleExport : {}\n", .{c.JS_AddModuleExport(ctx.ptr, m.?, "write")});
+            ) == 0);
 
             return ctx;
         }

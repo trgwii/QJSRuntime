@@ -1,3 +1,5 @@
+import { log } from "../../lib/std.js";
+
 export function foo() {
-  print("this is from foo.js");
+  log("this is from foo.js");
 }
