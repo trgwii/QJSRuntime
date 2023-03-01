@@ -10,6 +10,13 @@ log(Symbol("fart"));
 
 function foo() {}
 
+async function bar() {
+  await undefined;
+  log("async is cool!");
+}
+
+bar();
+
 log(foo);
 
 log([1, 2, true, "hello"]);

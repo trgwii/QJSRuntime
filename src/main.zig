@@ -77,5 +77,10 @@ pub fn main() !void {
 
             std.debug.print("Unhandled exception: {s}\n", .{str});
         }
+
+        while (c.JS_IsJobPending(rt.ptr) > 0) {
+            var ptr: ?*c.JSContext = null;
+            _ = c.JS_ExecutePendingJob(rt.ptr, &ptr);
+        }
     }
 }
