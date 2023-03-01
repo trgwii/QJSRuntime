@@ -6,9 +6,7 @@ pub fn build(b: *std.Build) void {
         }) catch unreachable,
     });
 
-    const optimize = b.standardOptimizeOption(.{
-        .preferred_optimize_mode = .ReleaseSafe,
-    });
+    const optimize = b.standardOptimizeOption(.{});
 
     const quickjs = b.addStaticLibrary(.{
         .name = "quickjs",
@@ -17,11 +15,6 @@ pub fn build(b: *std.Build) void {
         .root_source_file = .{ .path = "deps/quickjs/quickjs.c" },
     });
     quickjs.linkLibC();
-    quickjs.addCSourceFiles(&[_][]const u8{
-        "deps/quickjs/libunicode.c",
-        "deps/quickjs/libregexp.c",
-        "deps/quickjs/cutils.c",
-    }, &[_][]const u8{});
     quickjs.defineCMacro(
         "CONFIG_VERSION",
         "\"" ++ comptime std.mem.trim(
@@ -30,6 +23,13 @@ pub fn build(b: *std.Build) void {
             "\n",
         ) ++ "\"",
     );
+    quickjs.defineCMacro("CONFIG_BIGNUM", null);
+    quickjs.addCSourceFiles(&[_][]const u8{
+        "deps/quickjs/libunicode.c",
+        "deps/quickjs/libregexp.c",
+        "deps/quickjs/libbf.c",
+        "deps/quickjs/cutils.c",
+    }, &[_][]const u8{});
 
     const exe = b.addExecutable(.{
         .name = "ZigQuickJS2",
