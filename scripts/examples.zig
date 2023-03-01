@@ -24,5 +24,6 @@ pub fn main() !void {
         defer allocator.free(result.stderr);
         defer allocator.free(result.stdout);
         std.debug.print("{s}", .{result.stdout});
+        std.debug.print("{s}", .{result.stderr});
     }
 }

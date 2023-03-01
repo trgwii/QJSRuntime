@@ -62,20 +62,32 @@ pub fn main() !void {
             const exc = ctx.getException();
             defer exc.free(ctx);
 
+            const name = exc.prop(ctx, "name");
+            defer name.free(ctx);
+
             const msg = exc.prop(ctx, "message");
             defer msg.free(ctx);
+
+            const stack = exc.prop(ctx, "stack");
+            defer stack.free(ctx);
 
             if (msg.val.tag != c.JS_TAG_STRING) {
                 const exc_str = try exc.toString(ctx);
                 defer exc.freeString(ctx, exc_str);
 
-                std.debug.print("Unhandled exception ({s}): {s}\n", .{ jsTagToString(exc.val.tag), exc_str });
+                std.debug.print("\x1b[91mUnhandled exception ({s}): {s}\x1b[0m\n", .{ jsTagToString(exc.val.tag), exc_str });
                 return;
             }
-            const str = try msg.toString(ctx);
-            defer msg.freeString(ctx, str);
+            const name_str = try name.toString(ctx);
+            defer name.freeString(ctx, name_str);
 
-            std.debug.print("Unhandled exception: {s}\n", .{str});
+            const message_str = try msg.toString(ctx);
+            defer msg.freeString(ctx, message_str);
+
+            const stack_str = try stack.toString(ctx);
+            defer stack.freeString(ctx, stack_str);
+
+            std.debug.print("\x1b[91m{s}: {s}\n{s}\x1b[0m\n", .{ name_str, message_str, stack_str });
         }
 
         while (c.JS_IsJobPending(rt.ptr) > 0) {
