@@ -13,3 +13,9 @@ zig build run -- examples/logging.js
 ```sh
 zig run scripts/examples.zig
 ```
+
+## Release build
+
+```sh
+zig build -Doptimize=ReleaseFast
+```

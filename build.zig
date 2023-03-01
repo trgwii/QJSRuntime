@@ -37,6 +37,10 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
         .root_source_file = .{ .path = "src/main.zig" },
     });
+    if (optimize == .ReleaseFast) {
+        quickjs.strip = true;
+        exe.strip = true;
+    }
     exe.linkLibrary(quickjs);
     exe.addIncludePath("deps");
     exe.install();
