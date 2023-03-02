@@ -1,10 +1,9 @@
 const std = @import("std");
 const core = @import("../core.zig");
-const c = @cImport({
-    @cInclude("quickjs/quickjs.h");
-});
+const c = @import("c.zig");
 const Value = @import("Value.zig").Value;
 const Runtime = @import("Runtime.zig").Runtime;
+const ContextState = @import("../main.zig").ContextState;
 
 // TODO: This should probably be replaced with a proper Value.typeOf() (Maybe returning an enum wrapping JS_TAG_* globals)
 pub fn jsTagToString(tag: i64) []const u8 {
@@ -33,7 +32,7 @@ pub fn createRawFunction(comptime func: anytype) c.JSCFunction {
     const info = @typeInfo(@TypeOf(func)).Fn;
     return struct {
         fn _(_ctx: ?*c.JSContext, this: c.JSValue, argc: i32, argv: ?[*]c.JSValue) callconv(.C) c.JSValue {
-            const ctx = Context(void, void){ .ptr = _ctx.? };
+            const ctx = Context(void, ContextState){ .ptr = _ctx.? };
             _ = this;
             if (argc != info.params.len - 1) {
                 const err = ctx.createError();
@@ -51,7 +50,10 @@ pub fn createRawFunction(comptime func: anytype) c.JSCFunction {
             }};
             inline for (info.params[1..], 0..) |param, i| {
                 switch (param.type.?) {
-                    i32, []const u8 => {
+                    i32,
+                    []const u8,
+                    Value(void, ContextState),
+                    => {
                         fields = fields ++ &[_]std.builtin.Type.StructField{.{
                             .name = comptime std.fmt.comptimePrint("{}", .{i + 1}),
                             .type = param.type.?,
@@ -69,6 +71,7 @@ pub fn createRawFunction(comptime func: anytype) c.JSCFunction {
                 .decls = &[_]std.builtin.Type.Declaration{},
                 .is_tuple = true,
             } }) = undefined;
+            params[0] = ctx;
             inline for (0..params.len - 1) |i| {
                 const val: c.JSValue = argv.?[i];
                 switch (@TypeOf(params[i + 1])) {
@@ -95,6 +98,9 @@ pub fn createRawFunction(comptime func: anytype) c.JSCFunction {
                             },
                         }
                     },
+                    Value(void, ContextState) => {
+                        params[i + 1] = Value(void, ContextState){ .val = val };
+                    },
                     else => @compileError("Unsupported type: " ++ @typeName(@TypeOf(params[i + 1]))),
                 }
             }
@@ -106,7 +112,7 @@ pub fn createRawFunction(comptime func: anytype) c.JSCFunction {
                             else => {},
                         }
                     },
-                    i32 => {},
+                    i32, Value(void, ContextState) => {},
                     else => @compileError("Unsupported type: " ++ @typeName(@TypeOf(params[i + 1]))),
                 }
             };
@@ -119,6 +125,11 @@ pub fn createRawFunction(comptime func: anytype) c.JSCFunction {
                     void, noreturn => {
                         @call(.auto, func, params);
                         return .{ .tag = c.JS_TAG_UNDEFINED, .u = .{ .ptr = null } };
+                    },
+                    []const u8 => {
+                        const str = @call(.auto, func, params);
+                        defer ctx.getState().?.allocator.free(str);
+                        return ctx.createString(str).val;
                     },
                     else => @compileError("Unsupported type: " ++ @typeName(ReturnType)),
                 }
@@ -190,7 +201,10 @@ pub fn Context(comptime RtState: type, comptime CtxState: type) type {
         }
 
         pub fn getState(self: Self) ?*CtxState {
-            return c.JS_GetContextOpaque(self.ptr);
+            return @ptrCast(
+                ?*CtxState,
+                @alignCast(@alignOf(CtxState), c.JS_GetContextOpaque(self.ptr)),
+            );
         }
 
         pub fn setState(self: Self, state: *CtxState) void {

@@ -1,7 +1,5 @@
 const std = @import("std");
-const c = @cImport({
-    @cInclude("quickjs/quickjs.h");
-});
+const c = @import("c.zig");
 const malloc_functions = @import("malloc_functions.zig");
 const Context = @import("Context.zig").Context;
 

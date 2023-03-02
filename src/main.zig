@@ -1,9 +1,7 @@
 const std = @import("std");
 
 // TODO: (long-term) get rid of c import in main
-const c = @cImport({
-    @cInclude("quickjs/quickjs.h");
-});
+const c = @import("qjs/c.zig");
 const Runtime = @import("qjs/Runtime.zig").Runtime;
 const Context = @import("qjs/Context.zig").Context;
 const Value = @import("qjs/Value.zig").Value;
@@ -27,7 +25,7 @@ fn load(_ctx: ?*c.JSContext, path: ?[*:0]const u8, state: ?*anyopaque) callconv(
         1,
         0,
     ) catch {
-        std.debug.print("\x1b[91mFailed to load module '{s}'\n", .{path.?});
+        std.debug.print("\x1b[91mFailed to load module '{s}'\x1b[0m\n", .{path.?});
         std.os.exit(0); // TEMP solution
     };
     defer allocator.free(code);
@@ -38,7 +36,7 @@ fn load(_ctx: ?*c.JSContext, path: ?[*:0]const u8, state: ?*anyopaque) callconv(
     ).val.u.ptr);
 }
 
-fn printException(ctx: Context(void, void), exc: Value(void, void)) !void {
+fn printException(ctx: Context(void, ContextState), exc: Value(void, ContextState)) !void {
     const name = exc.prop(ctx, "name");
     defer name.free(ctx);
 
@@ -68,9 +66,27 @@ fn printException(ctx: Context(void, void), exc: Value(void, void)) !void {
 }
 
 // TODO: Start asynchronous processing, good first candidates:
-// * setTimeout / clearTimeout
+// * clearTimeout
 // * readFileAsync
 // * Async network sockets
+
+pub const Timer = struct {
+    timestamp: i64,
+    js_func: Value(void, ContextState),
+    done: bool = false,
+};
+
+fn allTimersDone(timers: []const Timer) bool {
+    for (timers) |timer| {
+        if (!timer.done) return false;
+    }
+    return true;
+}
+
+pub const ContextState = struct {
+    allocator: std.mem.Allocator,
+    timers: std.ArrayListUnmanaged(Timer),
+};
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{
@@ -89,8 +105,16 @@ pub fn main() !void {
 
     rt.setModuleLoader(std.mem.Allocator, &load, @constCast(&allocator));
 
-    const ctx = try rt.createContext(void);
+    const ctx = try rt.createContext(ContextState);
     defer ctx.deinit();
+
+    var state = ContextState{
+        .allocator = allocator,
+        .timers = std.ArrayListUnmanaged(Timer){},
+    };
+    defer state.timers.deinit(allocator);
+
+    ctx.setState(&state);
 
     ctx.eval(
         \\import { log } from 'std';
@@ -147,9 +171,19 @@ pub fn main() !void {
             try printException(ctx, exc);
         }
 
-        while (c.JS_IsJobPending(rt.ptr) > 0) {
+        while (c.JS_IsJobPending(rt.ptr) > 0 or !allTimersDone(state.timers.items)) {
             var ptr: ?*c.JSContext = null;
             _ = c.JS_ExecutePendingJob(rt.ptr, &ptr);
+            const now = std.time.milliTimestamp();
+            for (state.timers.items) |*timer| {
+                if (!timer.done and timer.timestamp <= now) {
+                    // TODO: print exception if call fails
+                    const res = c.JS_Call(ctx.ptr, timer.js_func.val, .{ .tag = c.JS_TAG_UNDEFINED, .u = .{ .ptr = null } }, 0, null);
+                    timer.js_func.free(ctx);
+                    c.JS_FreeValue(ctx.ptr, res);
+                    timer.done = true;
+                }
+            }
         }
     }
 }

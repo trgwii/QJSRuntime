@@ -1,8 +1,5 @@
+const c = @import("c.zig");
 const Context = @import("Context.zig").Context;
-
-const c = @cImport({
-    @cInclude("quickjs/quickjs.h");
-});
 
 pub fn Value(comptime RtState: type, comptime CtxState: type) type {
     return struct {
@@ -33,6 +30,10 @@ pub fn Value(comptime RtState: type, comptime CtxState: type) type {
 
         pub fn free(self: Self, ctx: Ctx) void {
             c.JS_FreeValue(ctx.ptr, self.val);
+        }
+
+        pub fn dupe(self: Self, ctx: Ctx) Val {
+            return .{ .val = c.JS_DupValue(ctx.ptr, self.val) };
         }
     };
 }

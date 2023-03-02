@@ -1,8 +1,6 @@
 const Allocator = @import("std").mem.Allocator;
 
-const c = @cImport({
-    @cInclude("quickjs/quickjs.h");
-});
+const c = @import("c.zig");
 
 const minimumAlignment = 16;
 

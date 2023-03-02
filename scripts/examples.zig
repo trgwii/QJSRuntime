@@ -14,6 +14,8 @@ pub fn main() !void {
         "examples/std-loading.js",
         "examples/global-console.js",
         "examples/failing-import.js",
+        "examples/core/readFileSync.js",
+        "examples/core/timer-ids.js",
     };
 
     inline for (files) |file| {
