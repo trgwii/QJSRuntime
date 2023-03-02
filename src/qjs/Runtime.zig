@@ -36,6 +36,7 @@ pub fn Runtime(comptime RtState: type) type {
             return Context(RtState, CtxState).init(self.ptr);
         }
 
+        // TODO: wrap the loader callback
         pub fn setModuleLoader(
             self: Self,
             comptime State: type,

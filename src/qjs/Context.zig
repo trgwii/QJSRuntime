@@ -6,6 +6,7 @@ const c = @cImport({
 const Value = @import("Value.zig").Value;
 const Runtime = @import("Runtime.zig").Runtime;
 
+// TODO: This should probably be replaced with a proper Value.typeOf() (Maybe wrapping JS_TAG_* globals)
 pub fn jsTagToString(tag: i64) []const u8 {
     if (tag == c.JS_TAG_FIRST) return "FIRST";
     if (tag == c.JS_TAG_BIG_DECIMAL) return "BIG_DECIMAL";
@@ -27,7 +28,7 @@ pub fn jsTagToString(tag: i64) []const u8 {
     unreachable;
 }
 
-// TODO: Support all types
+// TODO: Support all relevant types for the callback function
 pub fn createRawFunction(comptime func: anytype) c.JSCFunction {
     const info = @typeInfo(@TypeOf(func)).Fn;
     return struct {
@@ -224,6 +225,7 @@ pub fn Context(comptime RtState: type, comptime CtxState: type) type {
             return .{ .val = c.JS_NewStringLen(self.ptr, str.ptr, str.len) };
         }
 
+        // TODO: wrap eval flags with a packed struct
         pub fn eval(self: Self, input: [:0]const u8, filename: [*:0]const u8, eval_flags: i32) Val {
             return .{ .val = c.JS_Eval(self.ptr, input.ptr, input.len, filename, eval_flags) };
         }

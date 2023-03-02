@@ -1,4 +1,6 @@
 const std = @import("std");
+
+// TODO: (long-term) get rid of c import in main
 const c = @cImport({
     @cInclude("quickjs/quickjs.h");
 });
@@ -65,6 +67,11 @@ fn printException(ctx: Context(void, void), exc: Value(void, void)) !void {
     std.debug.print("\x1b[91m{s}: {s}\n{s}\x1b[0m\n", .{ name_str, message_str, stack_str });
 }
 
+// TODO: Start asynchronous processing, good first candidates:
+// * setTimeout / clearTimeout
+// * readFileAsync
+// * Async network sockets
+
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{
         .enable_memory_limit = true,
@@ -114,6 +121,7 @@ pub fn main() !void {
                 defer exc.free(ctx);
                 try printException(ctx, exc);
             } else {
+                // TODO: Call inspect here manually so string literal results of expressions get printed as "foo" rather than foo
                 const val = c.JS_Call(ctx.ptr, log.val, .{ .tag = c.JS_TAG_UNDEFINED, .u = .{ .ptr = null } }, 1, &res.val);
                 defer c.JS_FreeValue(ctx.ptr, val);
             }

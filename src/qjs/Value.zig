@@ -16,7 +16,7 @@ pub fn Value(comptime RtState: type, comptime CtxState: type) type {
             return .{ .val = c.JS_GetPropertyStr(ctx.ptr, self.val, name) };
         }
 
-        // TODO: Return type
+        // TODO: Wrap return type as an error union or something
         pub fn setProp(self: Self, ctx: Ctx, name: [*:0]const u8, val: Self) i32 {
             return c.JS_SetPropertyStr(ctx.ptr, self.val, name, val.val);
         }
@@ -25,6 +25,7 @@ pub fn Value(comptime RtState: type, comptime CtxState: type) type {
             return c.JS_ToCString(ctx.ptr, self.val) orelse return error.OutOfMemory;
         }
 
+        // TODO: make static?
         pub fn freeString(self: Self, ctx: Ctx, str: [*:0]const u8) void {
             _ = self;
             c.JS_FreeCString(ctx.ptr, str);
