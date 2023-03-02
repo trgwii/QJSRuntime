@@ -6,7 +6,7 @@ const c = @cImport({
 const Value = @import("Value.zig").Value;
 const Runtime = @import("Runtime.zig").Runtime;
 
-// TODO: This should probably be replaced with a proper Value.typeOf() (Maybe wrapping JS_TAG_* globals)
+// TODO: This should probably be replaced with a proper Value.typeOf() (Maybe returning an enum wrapping JS_TAG_* globals)
 pub fn jsTagToString(tag: i64) []const u8 {
     if (tag == c.JS_TAG_FIRST) return "FIRST";
     if (tag == c.JS_TAG_BIG_DECIMAL) return "BIG_DECIMAL";
@@ -28,7 +28,7 @@ pub fn jsTagToString(tag: i64) []const u8 {
     unreachable;
 }
 
-// TODO: Support all relevant types for the callback function
+// TODO: Support all relevant types for the wrapped function (f64 is missing, good first candidate)
 pub fn createRawFunction(comptime func: anytype) c.JSCFunction {
     const info = @typeInfo(@TypeOf(func)).Fn;
     return struct {

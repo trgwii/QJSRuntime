@@ -122,6 +122,8 @@ pub fn main() !void {
                 try printException(ctx, exc);
             } else {
                 // TODO: Call inspect here manually so string literal results of expressions get printed as "foo" rather than foo
+                // (That is, have to get a reference to inspect from `import { inspect } from 'std';` somehow
+                //     then call it with res.val, and then call console.log with the result of that)
                 const val = c.JS_Call(ctx.ptr, log.val, .{ .tag = c.JS_TAG_UNDEFINED, .u = .{ .ptr = null } }, 1, &res.val);
                 defer c.JS_FreeValue(ctx.ptr, val);
             }

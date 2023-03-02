@@ -25,7 +25,7 @@ pub fn Value(comptime RtState: type, comptime CtxState: type) type {
             return c.JS_ToCString(ctx.ptr, self.val) orelse return error.OutOfMemory;
         }
 
-        // TODO: make static?
+        // TODO: make static method (not take Self)?
         pub fn freeString(self: Self, ctx: Ctx, str: [*:0]const u8) void {
             _ = self;
             c.JS_FreeCString(ctx.ptr, str);
