@@ -36,7 +36,9 @@ fn load(_ctx: ?*c.JSContext, path: ?[*:0]const u8, state: ?*anyopaque) callconv(
     ).val.u.ptr);
 }
 
-fn printException(ctx: Context(void, ContextState), exc: Value(void, ContextState)) !void {
+const Val = Value(void, ContextState);
+
+fn printException(ctx: Context(void, ContextState), exc: Val) !void {
     const name = exc.getProp("name");
     defer ctx.free(name);
 
@@ -72,14 +74,12 @@ fn printException(ctx: Context(void, ContextState), exc: Value(void, ContextStat
 
 pub const Timer = struct {
     timestamp: i64,
-    js_func: Value(void, ContextState),
+    js_func: Val,
     done: bool = false,
 };
 
 fn allTimersDone(timers: []const Timer) bool {
-    for (timers) |timer| {
-        if (!timer.done) return false;
-    }
+    for (timers) |timer| if (!timer.done) return false;
     return true;
 }
 
@@ -148,8 +148,8 @@ pub fn main() !void {
                 // TODO: Call inspect here manually so string literal results of expressions get printed as "foo" rather than foo
                 // (That is, have to get a reference to inspect from `import { inspect } from 'std';` somehow
                 //     then call it with res.val, and then call console.log with the result of that)
-                const val = c.JS_Call(ctx.ptr, log.val, .{ .tag = c.JS_TAG_UNDEFINED, .u = .{ .ptr = null } }, 1, &res.val);
-                defer c.JS_FreeValue(ctx.ptr, val);
+                const val = log.call(ctx.createValue(c.JS_TAG_UNDEFINED, null), 1, &[_]Val{res});
+                defer ctx.free(val);
             }
         }
     } else for (args[1..]) |arg| {
@@ -178,9 +178,9 @@ pub fn main() !void {
             for (state.timers.items) |*timer| {
                 if (!timer.done and timer.timestamp <= now) {
                     // TODO: print exception if call fails
-                    const res = c.JS_Call(ctx.ptr, timer.js_func.val, .{ .tag = c.JS_TAG_UNDEFINED, .u = .{ .ptr = null } }, 0, null);
+                    const res = timer.js_func.call(ctx.createValue(c.JS_TAG_UNDEFINED, null), 0, null);
                     ctx.free(timer.js_func);
-                    c.JS_FreeValue(ctx.ptr, res);
+                    ctx.free(res);
                     timer.done = true;
                 }
             }

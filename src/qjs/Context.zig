@@ -232,6 +232,10 @@ pub fn Context(comptime RtState: type, comptime CtxState: type) type {
             return .{ .val = c.JS_GetGlobalObject(self.ptr), .ctx = self };
         }
 
+        pub fn createValue(self: Self, tag: c_int, u: ?c.JSValueUnion) Val {
+            return .{ .val = .{ .tag = tag, .u = u orelse .{ .ptr = null } }, .ctx = self };
+        }
+
         pub fn createError(self: Self) Val {
             return .{ .val = c.JS_NewError(self.ptr), .ctx = self };
         }
