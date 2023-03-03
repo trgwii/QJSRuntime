@@ -37,9 +37,9 @@ pub fn createRawFunction(comptime func: anytype) c.JSCFunction {
             if (argc != info.params.len - 1) {
                 const err = ctx.createError();
                 const msg = ctx.createString("Invalid number of arguments");
-                _ = err.setProp(ctx, "message", msg);
-                const exc = c.JS_Throw(ctx.ptr, err.val);
-                return exc;
+                _ = err.setProp("message", msg);
+                const exc = ctx.throw(err);
+                return exc.val;
             }
             comptime var fields: []const std.builtin.Type.StructField = &[_]std.builtin.Type.StructField{.{
                 .name = "0",
@@ -99,7 +99,7 @@ pub fn createRawFunction(comptime func: anytype) c.JSCFunction {
                         }
                     },
                     Value(void, ContextState) => {
-                        params[i + 1] = Value(void, ContextState){ .val = val };
+                        params[i + 1] = Value(void, ContextState){ .val = val, .ctx = ctx };
                     },
                     else => @compileError("Unsupported type: " ++ @typeName(@TypeOf(params[i + 1]))),
                 }
@@ -224,28 +224,41 @@ pub fn Context(comptime RtState: type, comptime CtxState: type) type {
                     name.ptr,
                     info.params.len,
                 ),
+                .ctx = self,
             };
         }
 
         pub fn globalThis(self: Self) Val {
-            return .{ .val = c.JS_GetGlobalObject(self.ptr) };
+            return .{ .val = c.JS_GetGlobalObject(self.ptr), .ctx = self };
         }
 
         pub fn createError(self: Self) Val {
-            return .{ .val = c.JS_NewError(self.ptr) };
+            return .{ .val = c.JS_NewError(self.ptr), .ctx = self };
         }
 
         pub fn createString(self: Self, str: []const u8) Val {
-            return .{ .val = c.JS_NewStringLen(self.ptr, str.ptr, str.len) };
+            return .{ .val = c.JS_NewStringLen(self.ptr, str.ptr, str.len), .ctx = self };
+        }
+
+        pub fn freeString(self: Self, str: [*:0]const u8) void {
+            c.JS_FreeCString(self.ptr, str);
+        }
+
+        pub fn free(self: Self, val: Val) void {
+            c.JS_FreeValue(self.ptr, val.val);
         }
 
         // TODO: wrap eval flags with a packed struct
         pub fn eval(self: Self, input: [:0]const u8, filename: [*:0]const u8, eval_flags: i32) Val {
-            return .{ .val = c.JS_Eval(self.ptr, input.ptr, input.len, filename, eval_flags) };
+            return .{ .val = c.JS_Eval(self.ptr, input.ptr, input.len, filename, eval_flags), .ctx = self };
+        }
+
+        pub fn throw(self: Self, val: Val) Val {
+            return .{ .val = c.JS_Throw(self.ptr, val.val), .ctx = self };
         }
 
         pub fn getException(self: Self) Val {
-            return .{ .val = c.JS_GetException(self.ptr) };
+            return .{ .val = c.JS_GetException(self.ptr), .ctx = self };
         }
     };
 }

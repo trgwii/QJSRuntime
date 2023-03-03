@@ -37,30 +37,30 @@ fn load(_ctx: ?*c.JSContext, path: ?[*:0]const u8, state: ?*anyopaque) callconv(
 }
 
 fn printException(ctx: Context(void, ContextState), exc: Value(void, ContextState)) !void {
-    const name = exc.prop(ctx, "name");
-    defer name.free(ctx);
+    const name = exc.getProp("name");
+    defer ctx.free(name);
 
-    const msg = exc.prop(ctx, "message");
-    defer msg.free(ctx);
+    const msg = exc.getProp("message");
+    defer ctx.free(msg);
 
-    const stack = exc.prop(ctx, "stack");
-    defer stack.free(ctx);
+    const stack = exc.getProp("stack");
+    defer ctx.free(stack);
 
     if (msg.val.tag != c.JS_TAG_STRING) {
-        const exc_str = try exc.toString(ctx);
-        defer exc.freeString(ctx, exc_str);
+        const exc_str = try exc.toString();
+        defer ctx.freeString(exc_str);
 
         std.debug.print("\x1b[91mUnhandled exception ({s}): {s}\x1b[0m\n", .{ jsTagToString(exc.val.tag), exc_str });
         return;
     }
-    const name_str = try name.toString(ctx);
-    defer name.freeString(ctx, name_str);
+    const name_str = try name.toString();
+    defer ctx.freeString(name_str);
 
-    const message_str = try msg.toString(ctx);
-    defer msg.freeString(ctx, message_str);
+    const message_str = try msg.toString();
+    defer ctx.freeString(message_str);
 
-    const stack_str = try stack.toString(ctx);
-    defer stack.freeString(ctx, stack_str);
+    const stack_str = try stack.toString();
+    defer ctx.freeString(stack_str);
 
     std.debug.print("\x1b[91m{s}: {s}\n{s}\x1b[0m\n", .{ name_str, message_str, stack_str });
 }
@@ -116,20 +116,20 @@ pub fn main() !void {
 
     ctx.setState(&state);
 
-    ctx.eval(
+    ctx.free(ctx.eval(
         \\import { log } from 'std';
         \\globalThis.console = { log };
-    , "prelude", c.JS_EVAL_TYPE_MODULE).free(ctx);
+    , "prelude", c.JS_EVAL_TYPE_MODULE));
 
     if (args.len == 1) {
         var line = std.ArrayList(u8).init(allocator);
         defer line.deinit();
         const glob = ctx.globalThis();
-        defer glob.free(ctx);
-        const console = glob.prop(ctx, "console");
-        defer console.free(ctx);
-        const log = console.prop(ctx, "log");
-        defer log.free(ctx);
+        defer ctx.free(glob);
+        const console = glob.getProp("console");
+        defer ctx.free(console);
+        const log = console.getProp("log");
+        defer ctx.free(log);
         while (true) : (line.clearRetainingCapacity()) {
             if (c.JS_IsJobPending(rt.ptr) > 0) {
                 var ptr: ?*c.JSContext = null;
@@ -138,11 +138,11 @@ pub fn main() !void {
             std.io.getStdIn().reader().readUntilDelimiterArrayList(&line, '\n', 1024 * 1024) catch break;
             try line.append(0);
             var res = ctx.eval(line.items[0 .. line.items.len - 1 :0], "<repl>", c.JS_EVAL_TYPE_GLOBAL);
-            defer res.free(ctx);
+            defer ctx.free(res);
 
             if (res.val.tag == c.JS_TAG_EXCEPTION) {
                 const exc = ctx.getException();
-                defer exc.free(ctx);
+                defer ctx.free(exc);
                 try printException(ctx, exc);
             } else {
                 // TODO: Call inspect here manually so string literal results of expressions get printed as "foo" rather than foo
@@ -163,11 +163,11 @@ pub fn main() !void {
         );
         defer allocator.free(code);
         const result = ctx.eval(code, arg, c.JS_EVAL_TYPE_MODULE);
-        defer result.free(ctx);
+        defer ctx.free(result);
 
         if (result.val.tag == 6) {
             const exc = ctx.getException();
-            defer exc.free(ctx);
+            defer ctx.free(exc);
             try printException(ctx, exc);
         }
 
@@ -179,7 +179,7 @@ pub fn main() !void {
                 if (!timer.done and timer.timestamp <= now) {
                     // TODO: print exception if call fails
                     const res = c.JS_Call(ctx.ptr, timer.js_func.val, .{ .tag = c.JS_TAG_UNDEFINED, .u = .{ .ptr = null } }, 0, null);
-                    timer.js_func.free(ctx);
+                    ctx.free(timer.js_func);
                     c.JS_FreeValue(ctx.ptr, res);
                     timer.done = true;
                 }

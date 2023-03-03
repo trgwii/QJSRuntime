@@ -26,7 +26,7 @@ pub fn setTimeout(ctx: Ctx, func: Value(void, ContextState), ms: i32) i32 {
     const state = ctx.getState().?;
     state.timers.append(state.allocator, .{
         .timestamp = std.time.milliTimestamp() + ms,
-        .js_func = func.dupe(ctx),
+        .js_func = func.dupe(),
     }) catch return -1;
     const id = @intCast(i32, state.timers.items.len - 1);
     return id;
