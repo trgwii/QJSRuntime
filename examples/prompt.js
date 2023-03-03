@@ -1,2 +1,2 @@
 import { prompt } from "std";
-console.log(prompt("fart"));
+console.log(prompt("foo"));
