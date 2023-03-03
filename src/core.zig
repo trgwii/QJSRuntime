@@ -72,10 +72,21 @@ pub fn readFileSync(ctx: Ctx, path: []const u8) []const u8 {
 // TODO: store parameters, support calling func with more parameters
 pub fn setTimeout(ctx: Ctx, func: Val, ms: i32) i32 {
     const state = ctx.getState().?;
-    state.timers.append(state.allocator, .{
+    const id: i32 = state.next_timer_id;
+
+    const gop = state.timers.getOrPut(state.allocator, id) catch return -1;
+    std.debug.assert(!gop.found_existing);
+    gop.value_ptr.* = .{
         .timestamp = std.time.milliTimestamp() + ms,
         .js_func = func.dupe(),
-    }) catch return -1;
-    const id = @intCast(i32, state.timers.items.len - 1);
+    };
+    state.next_timer_id +%= 1;
     return id;
+}
+
+pub fn clearTimeout(ctx: Ctx, id: i32) void {
+    const state = ctx.getState().?;
+    if (state.timers.fetchSwapRemove(id)) |kv| {
+        ctx.free(kv.value.js_func);
+    }
 }

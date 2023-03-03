@@ -75,17 +75,12 @@ fn printException(ctx: Context(void, ContextState), exc: Val) !void {
 pub const Timer = struct {
     timestamp: i64,
     js_func: Val,
-    done: bool = false,
 };
-
-fn allTimersDone(timers: []const Timer) bool {
-    for (timers) |timer| if (!timer.done) return false;
-    return true;
-}
 
 pub const ContextState = struct {
     allocator: std.mem.Allocator,
-    timers: std.ArrayListUnmanaged(Timer),
+    next_timer_id: i31 = 0,
+    timers: std.AutoArrayHashMapUnmanaged(i32, Timer),
 };
 
 pub fn main() !void {
@@ -110,7 +105,7 @@ pub fn main() !void {
 
     var state = ContextState{
         .allocator = allocator,
-        .timers = std.ArrayListUnmanaged(Timer){},
+        .timers = std.AutoArrayHashMapUnmanaged(i32, Timer){},
     };
     defer state.timers.deinit(allocator);
 
@@ -171,17 +166,19 @@ pub fn main() !void {
             try printException(ctx, exc);
         }
 
-        while (c.JS_IsJobPending(rt.ptr) > 0 or !allTimersDone(state.timers.items)) {
+        while (c.JS_IsJobPending(rt.ptr) > 0 or state.timers.keys().len > 0) {
             var ptr: ?*c.JSContext = null;
             _ = c.JS_ExecutePendingJob(rt.ptr, &ptr);
             const now = std.time.milliTimestamp();
-            for (state.timers.items) |*timer| {
-                if (!timer.done and timer.timestamp <= now) {
+            for (state.timers.keys()) |id| {
+                const timer = state.timers.get(id).?;
+                if (timer.timestamp <= now) {
                     // TODO: print exception if call fails
                     const res = timer.js_func.call(ctx.createValue(c.JS_TAG_UNDEFINED, null), 0, null);
                     ctx.free(timer.js_func);
                     ctx.free(res);
-                    timer.done = true;
+                    std.debug.assert(state.timers.swapRemove(id));
+                    break;
                 }
             }
         }

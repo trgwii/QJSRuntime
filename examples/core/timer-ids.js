@@ -1,15 +1,14 @@
-import { setTimeout } from "__core__";
+import { clearTimeout, setTimeout } from "__core__";
 
 console.log(
   "added timer " + setTimeout(() => {
     console.log("first (300)");
   }, 300),
 );
-console.log(
-  "added timer " + setTimeout(() => {
-    console.log("second (200)");
-  }, 200),
-);
+const second = setTimeout(() => {
+  console.log("second (200)");
+}, 200);
+console.log("added timer " + second);
 console.log(
   "added timer " + setTimeout(() => {
     console.log("third (100)");
@@ -20,3 +19,4 @@ console.log(
     console.log("fourth (0)");
   }, 0),
 );
+clearTimeout(second);
