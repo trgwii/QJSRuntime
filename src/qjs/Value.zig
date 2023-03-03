@@ -30,14 +30,14 @@ pub fn Value(comptime RtState: type, comptime CtxState: type) type {
 
         pub fn call(self: Self, this_obj: Self, argc: c_int, args: ?[]Self) Val {
             // map []Value to []JSValue
+            const state = @ptrCast(*ContextState, @alignCast(@alignOf(ContextState), self.ctx.getState().?));
             const argv: []c.JSValue = if (args) |as| blk: {
-                const state = @ptrCast(*ContextState, @alignCast(@alignOf(ContextState), self.ctx.getState().?));
                 const argv = state.allocator.alloc(c.JSValue, as.len) catch unreachable;
                 for (as, 0..) |arg, i|
                     argv[i] = arg.val;
-                defer state.allocator.free(argv);
                 break :blk argv;
             } else &[_]c.JSValue{};
+            defer state.allocator.free(argv);
 
             return .{ .val = c.JS_Call(self.ctx.ptr, self.val, this_obj.val, argc, argv.ptr), .ctx = self.ctx };
         }
