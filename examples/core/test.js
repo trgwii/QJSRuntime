@@ -1,5 +1,6 @@
-import { write } from "__core__";
+import { stdout, writeSync } from "__core__";
+import { encode } from "std";
 
-const res = write(1, "hello\n");
+const res = writeSync(stdout, encode("hello\n"));
 
-write(1, "write returned: " + String(res) + "\n");
+writeSync(stdout, encode("write returned: " + String(res) + "\n"));

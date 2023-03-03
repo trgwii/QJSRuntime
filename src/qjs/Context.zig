@@ -144,21 +144,37 @@ pub fn createRawFunction(comptime func: anytype) c.JSCFunction {
 const functions = b: {
     var fns: []const c.JSCFunctionListEntry = &[_]c.JSCFunctionListEntry{};
     inline for (@typeInfo(core).Struct.decls) |decl| if (decl.is_pub) {
-        const cFunc = createRawFunction(@field(core, decl.name));
-        const param_len = @typeInfo(@TypeOf(@field(core, decl.name))).Fn.params.len;
-        fns = fns ++ &[_]c.JSCFunctionListEntry{
-            .{
-                .name = decl.name.ptr,
-                .prop_flags = c.JS_PROP_NORMAL,
-                .def_type = c.JS_DEF_CFUNC,
-                .magic = 0,
-                .u = .{ .func = .{
-                    .length = param_len - 1,
-                    .cproto = c.JS_CFUNC_generic,
-                    .cfunc = .{ .generic = &cFunc },
-                } },
+        switch (@typeInfo(@TypeOf(@field(core, decl.name)))) {
+            .Fn => |f| {
+                const cFunc = createRawFunction(@field(core, decl.name));
+                const param_len = f.params.len;
+                fns = fns ++ &[_]c.JSCFunctionListEntry{
+                    .{
+                        .name = decl.name.ptr,
+                        .prop_flags = c.JS_PROP_NORMAL,
+                        .def_type = c.JS_DEF_CFUNC,
+                        .magic = 0,
+                        .u = .{ .func = .{
+                            .length = param_len - 1,
+                            .cproto = c.JS_CFUNC_generic,
+                            .cfunc = .{ .generic = &cFunc },
+                        } },
+                    },
+                };
             },
-        };
+            .Int => {
+                fns = fns ++ &[_]c.JSCFunctionListEntry{
+                    .{
+                        .name = decl.name.ptr,
+                        .prop_flags = c.JS_PROP_NORMAL,
+                        .def_type = c.JS_DEF_PROP_INT32,
+                        .magic = 0,
+                        .u = .{ .i32 = @field(core, decl.name) },
+                    },
+                };
+            },
+            else => @compileError("Exporting " ++ @typeName(@TypeOf(@field(core, decl.name))) ++ " to JS is not implemented"),
+        }
     };
     break :b fns;
 };

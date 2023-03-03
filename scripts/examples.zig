@@ -16,6 +16,9 @@ pub fn main() !void {
         "examples/failing-import.js",
         "examples/core/readFileSync.js",
         "examples/core/timer-ids.js",
+        "examples/core/writeSync.js",
+        "examples/core/file_ops.js",
+        "examples/core/net_ops.js",
     };
 
     inline for (files) |file| {
