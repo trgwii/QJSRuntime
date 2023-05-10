@@ -46,9 +46,9 @@ pub fn build(b: *std.Build) void {
     exe.addAnonymousModule("js_std", .{
         .source_file = .{ .path = "lib/std.js" },
     });
-    exe.install();
+    b.installArtifact(exe);
 
-    const run_cmd = exe.run();
+    const run_cmd = b.addRunArtifact(exe);
     run_cmd.step.dependOn(b.getInstallStep());
     if (b.args) |args| run_cmd.addArgs(args);
 

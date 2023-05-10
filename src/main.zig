@@ -89,7 +89,7 @@ pub fn main() !void {
     }){
         .requested_memory_limit = 100 * 1024 * 1024,
     };
-    defer std.debug.assert(!gpa.deinit());
+    defer std.debug.assert(gpa.deinit() == .ok);
     const allocator = gpa.allocator();
 
     const args = try std.process.argsAlloc(allocator);
@@ -112,8 +112,11 @@ pub fn main() !void {
     ctx.setState(&state);
 
     ctx.free(ctx.eval(
+        \\import { setTimeout } from '__core__';
         \\import { log } from 'std';
         \\globalThis.console = { log };
+        \\globalThis.setTimeout = setTimeout;
+        \\globalThis.clearTimeout = clearTimeout;
     , "prelude", c.JS_EVAL_TYPE_MODULE));
 
     if (args.len == 1) {
@@ -129,6 +132,18 @@ pub fn main() !void {
             if (c.JS_IsJobPending(rt.ptr) > 0) {
                 var ptr: ?*c.JSContext = null;
                 _ = c.JS_ExecutePendingJob(rt.ptr, &ptr);
+            }
+            const now = std.time.milliTimestamp();
+            for (state.timers.keys()) |id| {
+                const timer = state.timers.get(id).?;
+                if (timer.timestamp <= now) {
+                    // TODO: print exception if call fails
+                    const res = timer.js_func.call(ctx.createValue(c.JS_TAG_UNDEFINED, null), 0, null);
+                    ctx.free(timer.js_func);
+                    ctx.free(res);
+                    std.debug.assert(state.timers.swapRemove(id));
+                    break;
+                }
             }
             std.io.getStdIn().reader().readUntilDelimiterArrayList(&line, '\n', 1024 * 1024) catch break;
             try line.append(0);
